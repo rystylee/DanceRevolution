@@ -15,13 +15,13 @@ warnings.filterwarnings('ignore')
 
 
 
-def train(model, training_data, optimizer, device, args, log):
+def train(model, training_data, optimizer, device, args, log, start_epoch):
     """ Start training """
     # criterion = nn.MSELoss()
     criterion = nn.L1Loss()
     updates = 0  # global step
 
-    for epoch_i in range(1, args.epochs + 1):
+    for epoch_i in range(start_epoch, args.epochs + 1):
         log.set_progress(epoch_i, len(training_data))
         model.train()
         # scheduler.step()
@@ -68,6 +68,7 @@ def train(model, training_data, optimizer, device, args, log):
 
         checkpoint = {
             'model': model.state_dict(),
+            'optim': optimizer.state_dict(),
             'args': args,
             'epoch': epoch_i
         }
@@ -114,6 +115,7 @@ def get_args():
     parser.add_argument('--cuda', type=str2bool, nargs='?', metavar='BOOL',
                         const=True, default=torch.cuda.is_available(),
                         help='whether to use GPU acceleration.')
+    parser.add_argument('--checkpoint_path', type=str, default='')
 
     return parser.parse_args()
 
@@ -166,7 +168,19 @@ def main():
 
     optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.module.parameters()), lr=args.lr)
 
-    train(model, training_data, optimizer, device, args, log)
+    # Resume training
+    start_epoch = 1
+    if args.checkpoint_path != '':
+        checkpoint = torch.load(args.checkpoint_path)
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optim'])
+        start_epoch = checkpoint['epoch'] + 1
+        print('')
+        print(f'start_epoch: {start_epoch}')
+        print('Loaded pretrained models...\n')
+        print('')
+
+    train(model, training_data, optimizer, device, args, log, start_epoch)
 
 
 if __name__ == '__main__':
